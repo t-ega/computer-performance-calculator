@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Processing Comparison Tool</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
+    h1 { text-align: center; }
+    form, .results, .chart-container { background: white; padding: 20px; margin: 20px auto; max-width: 600px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    label, input, select { display: block; margin-bottom: 10px; width: 100%; }
+    button { padding: 10px 15px; background: steelblue; color: white; border: none; cursor: pointer; }
+    button:hover { background: darkblue; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { padding: 10px; border: 1px solid #ccc; text-align: center; }
+    canvas { width: 100% !important; height: 300px !important; }
+  </style>
+</head>
+<body>
+  <h1>Performance Comparison Tool</h1>
+  <form id="compute-form">
+    <label for="i">Lower Bound (i ≥ 1):</label>
+    <input type="number" id="i" name="i" min="1" required>
+
+    <label for="j">Upper Bound (j > i):</label>
+    <input type="number" id="j" name="j" required>
+
+    <label for="mode">Processing Mode:</label>
+    <select id="mode" name="mode" required>
+      <option value="sequential">Sequential</option>
+      <option value="multithreading">Multithreading</option>
+      <option value="multiprocessing">Multiprocessing</option>
+    </select>
+
+    <button type="submit">Run Computation</button>
+    <p id="status"></p>
+  </form>
+
+  <div class="results">
+    <h2>Latest Result</h2>
+    <table id="result-table" style="display:none;">
+      <thead>
+        <tr>
+          <th>Mode</th><th>Execution Time (s)</th><th>CPU Time (s)</th>
+          <th>Memory (MB)</th><th>CPU Util (%)</th><th>Result</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <h2>Performance Chart</h2>
+    <canvas id="performance-chart"></canvas>
+  </div>
+
+  <script>
+    const form = document.getElementById('compute-form');
+    const status = document.getElementById('status');
+    const resultTable = document.getElementById('result-table');
+    const tbody = resultTable.querySelector('tbody');
+    const chartCtx = document.getElementById('performance-chart').getContext('2d');
+
+    let chart = new Chart(chartCtx, {
+      type: 'bar',
+      data: {
+        labels: [],
+        datasets: [
+          { label: 'Execution Time (s)', data: [], backgroundColor: 'steelblue' },
+          { label: 'CPU Time (s)', data: [], backgroundColor: 'orange' },
+          { label: 'Memory (MB)', data: [], backgroundColor: 'green' }
+        ]
+      },
+      options: {
+        responsive: true,
+        scales: { y: { beginAtZero: true } }
+      }
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      status.textContent = 'Running...';
+      resultTable.style.display = 'none';
+
+      const i = parseInt(form.i.value);
+      const j = parseInt(form.j.value);
+      const mode = form.mode.value;
+
+      if (j <= i) {
+        alert('Upper bound must be greater than lower bound.');
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/compute', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ i, j, mode })
+        });
+
+        if (!response.ok) throw new Error('Server error');
+
+        const data = await response.json();
+        status.textContent = 'Completed.';
+
+        // Display in table
+        tbody.innerHTML = `
+          <tr>
+            <td>${data.processing_mode}</td>
+            <td>${data.execution_time.toFixed(4)}</td>
+            <td>${data.cpu_time.toFixed(4)}</td>
+            <td>${data.memory_usage.toFixed(2)}</td>
+            <td>${data.cpu_utilization.toFixed(2)}</td>
+            <td>${data.result_value.toFixed(8)}</td>
+          </tr>`;
+        resultTable.style.display = 'table';
+
+        // Update chart
+        chart.data.labels.push(data.processing_mode);
+        chart.data.datasets[0].data.push(data.execution_time);
+        chart.data.datasets[1].data.push(data.cpu_time);
+        chart.data.datasets[2].data.push(data.memory_usage);
+        chart.update();
+
+      } catch (err) {
+        status.textContent = 'Error: ' + err.message;
+      }
+    });
+  </script>
+</body>
+</html>
