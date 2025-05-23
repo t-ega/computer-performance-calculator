@@ -17,7 +17,14 @@ from core.utils import CalculationResponse
 
 PORT = int(os.environ.get("PORT", 8080))
 
-app = FastAPI(title="Performance Comparison API", version="1.0.0")
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    print("Starting lifespan")
+    init_db()
+    yield
+
+
+app = FastAPI(title="Performance Comparison API", version="1.0.0", lifespan=lifespan)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
@@ -29,13 +36,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    print("Starting lifespan")
-    init_db()
-    yield
-
 
 @app.post("/api/calculate", response_model=CalculationResponse)
 async def calculate_performance(request: CalculationRequest, db: Session = Depends(get_db)):

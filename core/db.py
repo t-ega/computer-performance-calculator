@@ -1,4 +1,3 @@
-from fastapi.logger import logger
 from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -51,5 +50,5 @@ def get_db():
 
 # Initialize database
 def init_db():
-    logger.info("Initializing database")
+    print("Initializing database")
     Base.metadata.create_all(bind=engine)
