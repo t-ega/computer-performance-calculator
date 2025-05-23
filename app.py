@@ -15,7 +15,7 @@ from core.performance_calculator import PerformanceCalculator
 from core.model import CalculationRequest
 from core.utils import CalculationResponse
 
-PORT = os.environ.get("PORT", 8080)
+PORT = int(os.environ.get("PORT", 8080))
 
 app = FastAPI(title="Performance Comparison API", version="1.0.0")
 app.mount("/static", StaticFiles(directory="static"), name="static")
