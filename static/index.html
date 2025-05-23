@@ -8,7 +8,7 @@
   <style>
     body { font-family: Arial, sans-serif; margin: 20px; background: #f4f4f4; }
     h1 { text-align: center; }
-    form, .results, .chart-container { background: white; padding: 20px; margin: 20px auto; max-width: 600px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+    form, .results, .chart-container { background: white; padding: 20px; margin: 20px auto; max-width: 1000px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
     label, input, select { display: block; margin-bottom: 10px; width: 100%; }
     button { padding: 10px 15px; background: steelblue; color: white; border: none; cursor: pointer; }
     button:hover { background: darkblue; }
@@ -29,7 +29,7 @@
     <label for="mode">Processing Mode:</label>
     <select id="mode" name="mode" required>
       <option value="sequential">Sequential</option>
-      <option value="multithreading">Multithreading</option>
+      <option value="threading">Multithreading</option>
       <option value="multiprocessing">Multiprocessing</option>
     </select>
 
@@ -42,91 +42,99 @@
     <table id="result-table" style="display:none;">
       <thead>
         <tr>
-          <th>Mode</th><th>Execution Time (s)</th><th>CPU Time (s)</th>
-          <th>Memory (MB)</th><th>CPU Util (%)</th><th>Result</th>
+          <th>Lower Bound</th>
+          <th>Upper Bound</th>
+          <th>Mode</th>
+          <th>Execution Time (s)</th>
+          <th>CPU Time (s)</th>
+          <th>Memory (MB)</th>
+          <th>CPU Util (%)</th>
+          <th>Result</th>
         </tr>
       </thead>
       <tbody></tbody>
     </table>
   </div>
 
-  <div class="chart-container">
-    <h2>Performance Chart</h2>
-    <canvas id="performance-chart"></canvas>
-  </div>
+<script>
+  const form = document.getElementById('compute-form');
+  const status = document.getElementById('status');
+  const resultTable = document.getElementById('result-table');
+  const tbody = resultTable.querySelector('tbody');
 
-  <script>
-    const form = document.getElementById('compute-form');
-    const status = document.getElementById('status');
-    const resultTable = document.getElementById('result-table');
-    const tbody = resultTable.querySelector('tbody');
-    const chartCtx = document.getElementById('performance-chart').getContext('2d');
+  // Fetch all past results and render table
+  async function loadResults() {
+    try {
+      const response = await fetch('/api/results');
+      if (!response.ok) throw new Error('Failed to load results');
+      let results = await response.json();
+      results = results["results"]
 
-    let chart = new Chart(chartCtx, {
-      type: 'bar',
-      data: {
-        labels: [],
-        datasets: [
-          { label: 'Execution Time (s)', data: [], backgroundColor: 'steelblue' },
-          { label: 'CPU Time (s)', data: [], backgroundColor: 'orange' },
-          { label: 'Memory (MB)', data: [], backgroundColor: 'green' }
-        ]
-      },
-      options: {
-        responsive: true,
-        scales: { y: { beginAtZero: true } }
-      }
-    });
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      status.textContent = 'Running...';
-      resultTable.style.display = 'none';
-
-      const i = parseInt(form.i.value);
-      const j = parseInt(form.j.value);
-      const mode = form.mode.value;
-
-      if (j <= i) {
-        alert('Upper bound must be greater than lower bound.');
+      if (results.length === 0) {
+        resultTable.style.display = 'none';
         return;
       }
 
-      try {
-        const response = await fetch('/api/compute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ i, j, mode })
-        });
+      tbody.innerHTML = results.map(row => `
+        <tr>
+          <td>${row.lower_bound}</td>
+          <td>${row.upper_bound}</td>
+          <td>${row.processing_mode}</td>
+          <td>${row.execution_time.toFixed(4)}</td>
+          <td>${row.cpu_time.toFixed(4)}</td>
+          <td>${row.memory_usage.toFixed(2)}</td>
+          <td>${row.cpu_utilization.toFixed(2)}</td>
+          <td>${row.result_value.toFixed(8)}</td>
+        </tr>
+      `).join('');
+      resultTable.style.display = 'table';
 
-        if (!response.ok) throw new Error('Server error');
+    } catch (err) {
+      console.error('Error loading results:', err);
+      status.textContent = 'Error loading historical results.';
+    }
+  }
 
-        const data = await response.json();
-        status.textContent = 'Completed.';
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    status.textContent = 'Running...';
 
-        // Display in table
-        tbody.innerHTML = `
-          <tr>
-            <td>${data.processing_mode}</td>
-            <td>${data.execution_time.toFixed(4)}</td>
-            <td>${data.cpu_time.toFixed(4)}</td>
-            <td>${data.memory_usage.toFixed(2)}</td>
-            <td>${data.cpu_utilization.toFixed(2)}</td>
-            <td>${data.result_value.toFixed(8)}</td>
-          </tr>`;
-        resultTable.style.display = 'table';
+    const i = parseInt(form.i.value);
+    const j = parseInt(form.j.value);
+    const mode = form.mode.value;
 
-        // Update chart
-        chart.data.labels.push(data.processing_mode);
-        chart.data.datasets[0].data.push(data.execution_time);
-        chart.data.datasets[1].data.push(data.cpu_time);
-        chart.data.datasets[2].data.push(data.memory_usage);
-        chart.update();
+    if (j <= i) {
+      alert('Upper bound must be greater than lower bound.');
+      return;
+    }
 
-      } catch (err) {
-        status.textContent = 'Error: ' + err.message;
-      }
-    });
-  </script>
+    try {
+      const response = await fetch('/api/calculate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lower_bound: i,
+          upper_bound: j,
+          processing_mode: mode
+        })
+      });
+
+      if (!response.ok) throw new Error('Server error');
+
+      const data = await response.json();
+      status.textContent = 'Completed.';
+
+      await loadResults(); // Refresh the table after new result
+
+    } catch (err) {
+      console.error(err);
+      status.textContent = 'Error: ' + err.message;
+    }
+  });
+
+  window.addEventListener('DOMContentLoaded', loadResults);
+</script>
+
 </body>
 </html>

@@ -1,3 +1,8 @@
+from dataclasses import dataclass
+
+from pydantic import BaseModel
+
+
 @dataclass
 class PerformanceMetrics:
     timestamp: str
@@ -10,3 +15,9 @@ class PerformanceMetrics:
     cpu_utilization: float
     result_value: float
     cores_used: int = 1
+
+
+class CalculationResponse(BaseModel):
+    metrics: dict
+    success: bool
+    message: str
