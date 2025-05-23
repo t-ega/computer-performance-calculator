@@ -82,6 +82,7 @@ async def calculate_performance(request: CalculationRequest, db: Session = Depen
 
     except Exception as e:
         db.rollback()
+        print("Exception occurred", e)
         raise HTTPException(status_code=500, detail=f"Calculation failed: {str(e)}")
 
 

@@ -112,6 +112,13 @@ class PerformanceCalculator:
         )
 
     @staticmethod
+    def cpu_bound_task(start, end, result_list):
+        partial = 0.0
+        for k in range(start, end + 1):
+            partial += 1.0 / (k * k)
+        result_list.append(partial)
+
+    @staticmethod
     def calculate_multiprocessing(i: int, j: int) -> PerformanceMetrics:
         """Multiprocessing implementation (manual process spawning)"""
         process = psutil.Process()
@@ -121,12 +128,6 @@ class PerformanceCalculator:
         start_time = time.time()
         start_cpu_time = time.process_time()
         cpu_percent_start = process.cpu_percent()
-
-        def cpu_bound_task(start, end, result_list):
-            partial = 0.0
-            for k in range(start, end + 1):
-                partial += 1.0 / (k * k)
-            result_list.append(partial)
 
         total_range = j - i + 1
         chunk_size = max(1, total_range // num_processes)
@@ -139,7 +140,10 @@ class PerformanceCalculator:
                 chunk_start = i + p * chunk_size
                 chunk_end = min(chunk_start + chunk_size - 1, j)
                 if chunk_start <= j:
-                    proc = multiprocessing.Process(target=cpu_bound_task, args=(chunk_start, chunk_end, result_list))
+                    proc = multiprocessing.Process(
+                        target=PerformanceCalculator.cpu_bound_task,
+                        args=(chunk_start, chunk_end, result_list)
+                    )
                     processes.append(proc)
                     proc.start()
 
@@ -148,7 +152,6 @@ class PerformanceCalculator:
 
             result = sum(result_list)
 
-        # End monitoring
         end_time = time.time()
         end_cpu_time = time.process_time()
         current, peak_memory = tracemalloc.get_traced_memory()
