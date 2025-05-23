@@ -32,6 +32,7 @@ app.add_middleware(
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    print("Starting lifespan")
     init_db()
     yield
 
