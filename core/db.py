@@ -1,3 +1,4 @@
+from fastapi.logger import logger
 from sqlalchemy import create_engine, Column, Integer, Float, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -39,6 +40,7 @@ class PerformanceResult(Base):
     def __repr__(self):
         return f"<PerformanceResult(id={self.id}, mode={self.processing_mode}, time={self.execution_time})>"
 
+
 def get_db():
     db = SessionLocal()
     try:
@@ -49,18 +51,5 @@ def get_db():
 
 # Initialize database
 def init_db():
+    logger.info("Initializing database")
     Base.metadata.create_all(bind=engine)
-
-
-def get_db_stats():
-    """Get database statistics"""
-    db = SessionLocal()
-    try:
-        total_records = db.query(PerformanceResult).count()
-        modes = db.query(PerformanceResult.processing_mode).distinct().all()
-        return {
-            "total_records": total_records,
-            "processing_modes": [mode[0] for mode in modes]
-        }
-    finally:
-        db.close()
